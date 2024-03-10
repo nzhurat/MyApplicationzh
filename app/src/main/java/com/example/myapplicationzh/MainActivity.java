@@ -1,10 +1,12 @@
 package com.example.myapplicationzh;
 
 import android.os.Bundle;
+import android.os.StrictMode;
+import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -16,61 +18,65 @@ import java.net.Socket;
 
 public class MainActivity extends AppCompatActivity {
 
-    private EditText editText1;
-    private TextView output;
+    private static final String TAG = "MyApp";
+
+    private EditText editText;
+    private TextView outputTextView;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState)
-    {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        editText1 = findViewById(R.id.input1);
-        output = findViewById(R.id.output);
+        editText = findViewById(R.id.input1);
+        outputTextView = findViewById(R.id.output);
+        Button submitButton = findViewById(R.id.button);
 
-        findViewById(R.id.button).setOnClickListener(new View.OnClickListener()
-        {
+        submitButton.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v)
-            {
-                String studentNumber = editText1.getText().toString();
-                Thread thread = new Thread(new Runnable()
-                {
-                    @Override
-                    public void run()
-                    {
-                        try
-                        {
-                            Socket socket = new Socket("se2-submission.aau.at", 20080);
-                            DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
-                            outputStream.writeBytes(studentNumber + "\n");
-                            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                            final String result = reader.readLine();
-                            socket.close();
-                            runOnUiThread(new Runnable()
-                            {
-                                @Override
-                                public void run()
-                                {
-                                    output.setText(result);
-                                }
-                            });
-                        } catch (IOException e)
-                        {
-                            e.printStackTrace();
-                            runOnUiThread(new Runnable()
-                            {
-                                @Override
-                                public void run()
-                                {
-                                    Toast.makeText(MainActivity.this, "Помилка підключення до сервера", Toast.LENGTH_SHORT).show();
-                                }
-                            });
-                        }
-                    }
-                });
-                thread.start();
+            public void onClick(View view) {
+                String inputText = editText.getText().toString();
+                Threed(inputText);
             }
         });
     }
+
+    private void Threed(final String studentNumber) {
+        StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
+        StrictMode.setThreadPolicy(policy);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Log.d(TAG, "Connecting to the server...");
+                    Socket socket = new Socket("se2-submission.aau.at", 20080);
+                    Log.d(TAG, "Connected to the server.");
+
+                    DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
+                    dataOutputStream.writeBytes(studentNumber + '\n');
+                    Log.d(TAG, "Sent student number to the server.");
+
+                    BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+                    final String result = bufferedReader.readLine();
+                    Log.d(TAG, "Received result from the server: " + result);
+
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            outputTextView.setText(result);
+                        }
+                    });
+
+                    socket.close();
+                    Log.d(TAG, "Socket closed.");
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    Log.e(TAG, "Error during network operations: " + e.getMessage());
+                }
+            }
+        }).start();
+    }
 }
+
